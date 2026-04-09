@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+// Defines the Go package name for the generated code
+option go_package = "ipfs-file-leaks/key-server/pb";
+
+package key_service;
+
+// The KeyService definition (these act like your "routes")
+service KeyService {
+  // Registers a newly generated key with an expiration
+  rpc RegisterKey (RegisterKeyRequest) returns (RegisterKeyResponse) {}
+  
+  // Retrieves a key if the TTL hasn't expired
+  rpc GetKey (GetKeyRequest) returns (GetKeyResponse) {}
+}
+
+// Data structures for the requests and responses
+
+message RegisterKeyRequest {
+  string cid = 1;
+  bytes encryption_key = 2; // The symmetric key
+  int64 ttl_seconds = 3;    // Expiration
+}
+
+message RegisterKeyResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetKeyRequest {
+  string cid = 1;
+}
+
+message GetKeyResponse {
+  bool success = 1;
+  bytes encryption_key = 2; // Returned if not expired
+  string message = 3;
+}
