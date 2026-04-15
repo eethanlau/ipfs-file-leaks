@@ -1,0 +1,15 @@
+[package]
+name = "encryption-node"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tonic = "0.10"
+prost = "0.12"
+tokio = { version = "1", features = ["full"] }
+
+aes-gcm-siv = "0.11"
+ipfs-api-backend-hyper = "0.6"
+
+[build-dependencies]
+tonic-build = "0.10"

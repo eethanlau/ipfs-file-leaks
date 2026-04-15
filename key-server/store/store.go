@@ -49,9 +49,9 @@ func (s *InMemoryStore) Get(cid string) ([]byte, error) {
 		return nil, errors.New("key not found")
 	}
 
-	// This is where we enforce the expiration your paper talks about
+	// Enforce expiration
 	if time.Now().After(record.ExpiresAt) {
-		// Optional: you could actively delete the key from the map here to save memory
+		delete(s.keys, cid)
 		return nil, errors.New("key has expired")
 	}
 
