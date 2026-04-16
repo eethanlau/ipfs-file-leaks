@@ -30,3 +30,19 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# ---- Rust ----
+# Cargo build artifacts
+encryption-node/target/
+
+# ---- macOS ----
+.DS_Store
+
+# ---- Project-specific ----
+# Output file produced by the retrieve command
+decrypted_output
+
+# Test files created locally during development
+test_secret.txt
+*.test_file
+

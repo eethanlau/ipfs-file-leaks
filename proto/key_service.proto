@@ -17,6 +17,7 @@ service KeyService {
 // Data structures for the requests and responses
 
 message RegisterKeyRequest {
+  string cid = 1;
   bytes encryption_key = 2; // The symmetric key
   int64 ttl_seconds = 3;    // Expiration
   bool is_replication = 4;  // True if this is a server-to-server replication
