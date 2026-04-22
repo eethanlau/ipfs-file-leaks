@@ -1,0 +1,34 @@
+services:
+
+  # IPFS Kubo node
+  ipfs:
+    image: ipfs/kubo:latest
+    container_name: ipfs-node
+    ports:
+      - "4001:4001" # P2P swarm
+      - "4001:4001/udp" # P2P swarm (UDP)
+      - "5001:5001" # HTTP to upload/download
+      - "8080:8080" # Gateway
+    volumes:
+      - ipfs_data:/data/ipfs
+    healthcheck:
+      test: [ "CMD", "ipfs", "id" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Go gRPC key server (stores encryption keys and enforces TTL)
+  key-server:
+    build:
+      context: ../key-server
+      dockerfile: Dockerfile
+    container_name: key-server
+    ports:
+      - "50051:50051" # gRPC to register/get keys)
+    depends_on:
+      ipfs:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  ipfs_data:

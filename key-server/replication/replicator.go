@@ -31,11 +31,9 @@ func (r *Replicator) BroadcastKey(req *pb.RegisterKeyRequest) {
 		TtlSeconds:    req.TtlSeconds,
 		IsReplication: true,
 	}
-
+	// 2. Launch a goroutine for each peer as to not slow down the main server response
 	for _, peerAddr := range r.peers {
-		// 2. Launch a goroutine for each peer so we don't slow down the main server response
 		go func(addr string) {
-			
 			// 3. Connect to the peer server over gRPC (acting as a client now)
 			conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
@@ -45,7 +43,7 @@ func (r *Replicator) BroadcastKey(req *pb.RegisterKeyRequest) {
 			defer conn.Close()
 
 			client := pb.NewKeyServiceClient(conn)
-			
+
 			// 4. Send the key forward
 			_, err = client.RegisterKey(context.Background(), replicationReq)
 			if err != nil {
@@ -53,7 +51,7 @@ func (r *Replicator) BroadcastKey(req *pb.RegisterKeyRequest) {
 			} else {
 				log.Printf("Successfully replicated key to peer %s", addr)
 			}
-			
+
 		}(peerAddr)
 	}
 }

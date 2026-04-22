@@ -4,7 +4,7 @@ use reqwest::multipart;
 pub async fn upload_to_ipfs(data: Vec<u8>) -> Result<String, String> {
     let client = reqwest::Client::new();
 
-    // Wrap the raw bytes as a multipart file part
+    // Wrap raw bytes as a multipart file part
     let part = multipart::Part::bytes(data).file_name("file");
     let form = multipart::Form::new().part("file", part);
 

@@ -46,18 +46,21 @@ async fn main() {
         "retrieve" => {
             println!("Starting download flow for CID: {}", target);
             // 2. retrieve file
+            // let ciphertext = ipfs::download_from_ipfs(target).await.expect("...");
+            // std::fs::write("raw_ciphertext_download", &ciphertext).expect("Failed to save");
+            // println!("Downloaded {} bytes of ciphertext", ciphertext.len());
 
             // 2.1. let ciphertext = ipfs::download(target);
             // Download file with corresponding CID
             let ciphertext = ipfs::download_from_ipfs(target).await.expect("Failed to download file");
 
-            // 2.2. Contact go server with the client to get the key
+            // // 2.2. Contact go server with the client to get the key
             let crypto_key = client::get_key(target.to_string()).await.expect("failed to contact go server to retrieve key");
 
-            // 2.3. Decrypt the file with the key
+            // // 2.3. Decrypt the file with the key
             let plaintext = crypto::decrypt_file(&ciphertext, &crypto_key).expect("Failed to decrypt file");
 
-            // 2.4. Save the decrypted file to disk
+            // // 2.4. Save the decrypted file to disk
             std::fs::write("decrypted_output", plaintext).expect("Failed to save decrypted file");
             println!("File retrieved and saved as 'decrypted_output'");
         },

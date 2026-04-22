@@ -2,31 +2,47 @@ package server
 
 import (
 	"context"
-	pb "ipfs-file-leaks/key-server/pb" // The auto-generated proto file import
+
+	pb "ipfs-file-leaks/key-server/pb"
+	"ipfs-file-leaks/key-server/store"
 )
 
-// server is used to implement pb.KeyServiceServer
-type server struct {
+// Server implements pb.KeyServiceServer
+type Server struct {
 	pb.UnimplementedKeyServiceServer
-	// need to include the store variable later
+	store *store.InMemoryStore
 }
 
-// Function for registering key, take in the RegisterKeyRequest from context
-func (s *server) RegisterKey(ctx context.Context, in *pb.RegisterKeyRequest) (*pb.RegisterKeyResponse, error) {
-	// Store the key after registration and replicate the key to other servers?
-	
+// NewServer creates a Server with an initialized in-memory key store
+func NewServer() *Server {
+	return &Server{
+		store: store.NewInMemoryStore(),
+	}
+}
+
+// RegisterKey stores the encryption key for a CID with the given TTL
+func (s *Server) RegisterKey(ctx context.Context, in *pb.RegisterKeyRequest) (*pb.RegisterKeyResponse, error) {
+	s.store.Set(in.Cid, in.EncryptionKey, in.TtlSeconds)
+
 	return &pb.RegisterKeyResponse{
 		Success: true,
-		Message: "Key successfully registered with TTL",
+		Message: "Key registered successfully",
 	}, nil
 }
 
-// GetKey function to implement retrieval of key from server for Rust node to verify
-func (s *server) GetKey(ctx context.Context in *pb.GetKeyRequest) (*pb.RegisterKeyResponse, error) {
-	// Get the Key struct from the stores
-	// If the ttl is valid, return the key to the client;
-	// If ttl expired, return an error response to the client
+// GetKey retrieves the encryption key for a CID if its TTL has not expired
+func (s *Server) GetKey(ctx context.Context, in *pb.GetKeyRequest) (*pb.GetKeyResponse, error) {
+	key, err := s.store.Get(in.Cid)
+	if err != nil {
+		// Key not found or TTL expired — return a failed response, not a Go error
+		return &pb.GetKeyResponse{
+			Success: false,
+			Message: err.Error(),
+		}, nil
+	}
+
 	return &pb.GetKeyResponse{
-		Success: true,
+		Success:       true,
+		EncryptionKey: key,
 	}, nil
 }
