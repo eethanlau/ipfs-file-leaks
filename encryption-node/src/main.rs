@@ -3,10 +3,10 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
-use encryption_node::client;
 use encryption_node::config::Config;
 use encryption_node::crypto;
 use encryption_node::ipfs::IpfsClient;
+use encryption_node::key_client::KeyClient;
 
 #[tokio::main]
 async fn main() {
@@ -37,13 +37,10 @@ async fn main() {
                 .await
                 .expect("Failed to upload file to IPFS node");
 
-            client::register_key(
-                cid.clone(),
-                crypto_key.to_vec(),
-                cfg.default_ttl.as_secs() as i64,
-            )
-            .await
-            .expect("Failed to register key");
+            let keys = KeyClient::new(cfg.key_server_url.clone());
+            keys.register(&cid, &crypto_key, cfg.default_ttl)
+                .await
+                .expect("Failed to register key");
             println!("File published, CID: {}", cid);
         }
         "retrieve" => {
@@ -52,9 +49,11 @@ async fn main() {
             let ipfs = IpfsClient::new(cfg.ipfs_url.clone());
             let ciphertext = ipfs.cat(target).await.expect("Failed to download file");
 
-            let crypto_key = client::get_key(target.to_string())
+            let keys = KeyClient::new(cfg.key_server_url.clone());
+            let crypto_key = keys
+                .fetch(target)
                 .await
-                .expect("failed to contact go server to retrieve key");
+                .expect("failed to contact key server to retrieve key");
 
             let plaintext =
                 crypto::decrypt_file(&ciphertext, &crypto_key).expect("Failed to decrypt file");
