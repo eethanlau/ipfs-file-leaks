@@ -3,6 +3,13 @@ name = "encryption-node"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "encryption-node"
+path = "src/main.rs"
+
 [dependencies]
 tonic = "0.10"
 prost = "0.12"
