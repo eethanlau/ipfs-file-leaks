@@ -20,6 +20,8 @@ rand = "0.8"
 # Using reqwest to call the IPFS HTTP API directly (avoids broken ipfs-api-backend-hyper deps)
 reqwest = { version = "0.12", features = ["multipart", "json"] }
 serde_json = "1"
+thiserror = "1"
+url = "2"
 
 [build-dependencies]
 tonic-build = "0.10"
