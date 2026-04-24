@@ -24,6 +24,7 @@ impl KeyClient {
         }
     }
 
+    #[tracing::instrument(skip(self, key))]
     pub async fn register(
         &self,
         cid: &str,
@@ -48,6 +49,7 @@ impl KeyClient {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn fetch(&self, cid: &str) -> Result<SecretKey, KeyClientError> {
         let channel = self
             .endpoint

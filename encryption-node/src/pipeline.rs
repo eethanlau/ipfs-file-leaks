@@ -41,6 +41,7 @@ impl Pipeline {
 
     /// Encrypts `plaintext` under a fresh key, uploads the envelope to IPFS,
     /// and registers the key with the key server under that CID for `ttl`.
+    #[tracing::instrument(skip(self, plaintext), fields(plaintext_len = plaintext.len()))]
     pub async fn publish(&self, plaintext: &[u8], ttl: Duration) -> Result<PublishOutcome, Error> {
         let key = SecretKey::generate();
         let envelope = crypto::encrypt(plaintext, &key)?;
@@ -51,6 +52,7 @@ impl Pipeline {
 
     /// Fetches the key for `cid` from the key server, downloads the envelope
     /// from IPFS, and decrypts. Returns the original plaintext bytes.
+    #[tracing::instrument(skip(self))]
     pub async fn retrieve(&self, cid: &str) -> Result<Vec<u8>, Error> {
         let key = self.keys.fetch(cid).await?;
         let envelope = self.ipfs.cat(cid).await?;

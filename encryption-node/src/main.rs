@@ -1,51 +1,85 @@
-use std::env;
-use std::fs::File;
-use std::io;
-use std::io::prelude::*;
+//! CLI entry point for the encryption-node client.
+
+use std::path::PathBuf;
+use std::time::Duration;
+
+use clap::{Parser, Subcommand};
+use color_eyre::eyre::Result;
+use tonic::transport::Uri;
+use tracing_subscriber::EnvFilter;
+use url::Url;
 
 use encryption_node::config::Config;
 use encryption_node::pipeline::Pipeline;
 
-#[tokio::main]
-async fn main() {
-    let args: Vec<String> = env::args().collect();
+#[derive(Parser)]
+#[command(
+    version,
+    about = "Publish and retrieve TTL-gated encrypted files on IPFS"
+)]
+struct Cli {
+    /// IPFS HTTP API endpoint (Kubo-compatible)
+    #[arg(long, env = "IPFS_URL", default_value = "http://127.0.0.1:5001/")]
+    ipfs_url: Url,
 
-    if args.len() < 3 {
-        println!("Usage: cargo run <publish|retrieve> <file_path|cid>");
-        return;
-    }
+    /// Key server gRPC endpoint
+    #[arg(long, env = "KEY_SERVER_URL", default_value = "http://127.0.0.1:50051")]
+    key_server_url: Uri,
 
-    let command = &args[1];
-    let target = &args[2];
+    /// TTL the key server holds the encryption key for, e.g. "24h" or "30m"
+    #[arg(long, env = "TTL", default_value = "24h", value_parser = parse_ttl)]
+    ttl: Duration,
 
-    let pipeline = Pipeline::new(Config::default_localhost());
-
-    match command.as_str() {
-        "publish" => {
-            println!("Starting upload flow for file: {}", target);
-            let plaintext = read_file(target.to_string()).expect("Failed to read file contents");
-            let outcome = pipeline
-                .publish(&plaintext, pipeline.default_ttl())
-                .await
-                .expect("publish failed");
-            println!("File published, CID: {}", outcome.cid);
-        }
-        "retrieve" => {
-            println!("Starting download flow for CID: {}", target);
-            let plaintext = pipeline.retrieve(target).await.expect("retrieve failed");
-            std::fs::write("decrypted_output", plaintext).expect("Failed to save decrypted file");
-            println!("File retrieved and saved as 'decrypted_output'");
-        }
-        _ => {
-            println!("Unknown command. Please use 'publish' or 'retrieve' in order to either publish or retrieve the file/s.");
-        }
-    }
+    #[command(subcommand)]
+    command: Command,
 }
 
-pub fn read_file(target: String) -> io::Result<Vec<u8>> {
-    let mut f = File::open(target)?;
+#[derive(Subcommand)]
+enum Command {
+    /// Encrypt a file, upload the envelope to IPFS, and register its key
+    Publish { path: PathBuf },
+    /// Fetch the key, download the envelope from IPFS, and decrypt
+    Retrieve { cid: String },
+}
 
-    let mut buffer = Vec::new();
-    f.read_to_end(&mut buffer)?;
-    Ok(buffer)
+fn parse_ttl(input: &str) -> Result<Duration, humantime::DurationError> {
+    humantime::parse_duration(input)
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    color_eyre::install()?;
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+
+    let cli = Cli::parse();
+    let pipeline = Pipeline::new(Config {
+        ipfs_url: cli.ipfs_url,
+        key_server_url: cli.key_server_url,
+        default_ttl: cli.ttl,
+    });
+
+    match cli.command {
+        Command::Publish { path } => {
+            let plaintext = std::fs::read(&path)?;
+            let outcome = pipeline.publish(&plaintext, pipeline.default_ttl()).await?;
+            println!(
+                "published cid={} ttl={}",
+                outcome.cid,
+                humantime::format_duration(outcome.ttl)
+            );
+        }
+        Command::Retrieve { cid } => {
+            let plaintext = pipeline.retrieve(&cid).await?;
+            std::fs::write("decrypted_output", &plaintext)?;
+            println!(
+                "retrieved cid={} bytes={} -> decrypted_output",
+                cid,
+                plaintext.len()
+            );
+        }
+    }
+
+    Ok(())
 }

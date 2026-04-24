@@ -20,6 +20,7 @@ impl IpfsClient {
         }
     }
 
+    #[tracing::instrument(skip(self, data), fields(bytes = data.len()))]
     pub async fn add(&self, data: Vec<u8>) -> Result<String, IpfsError> {
         let url = self.base.join(ADD_PATH).map_err(IpfsError::Url)?;
         let part = multipart::Part::bytes(data).file_name("file");
@@ -34,6 +35,7 @@ impl IpfsClient {
             .ok_or(IpfsError::MissingHash)
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn cat(&self, cid: &str) -> Result<Vec<u8>, IpfsError> {
         let mut url = self.base.join(CAT_PATH).map_err(IpfsError::Url)?;
         url.query_pairs_mut().append_pair("arg", cid);
