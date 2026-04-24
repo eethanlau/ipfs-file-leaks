@@ -110,15 +110,91 @@ pub enum CryptoError {
 mod tests {
     use super::*;
 
-    /// Smoke: plaintext survives encrypt → decrypt under the same key.
-    /// The full property suite (nonce freshness, tampering, version, length,
-    /// key validation) lands with the test commit.
+    // T2: identical (plaintext, key) must produce distinct envelopes.
+    // Catches regression to a fixed-nonce cipher.
     #[test]
-    fn round_trip_recovers_plaintext() {
+    fn nonce_is_fresh_per_encryption() {
         let key = SecretKey::generate();
-        let plaintext = b"the quick brown fox jumps over the lazy dog";
-        let envelope = encrypt(plaintext, &key).expect("encrypt");
-        let recovered = decrypt(&envelope, &key).expect("decrypt");
-        assert_eq!(recovered, plaintext);
+        let plaintext = b"deterministic input";
+        let a = encrypt(plaintext, &key).expect("encrypt a");
+        let b = encrypt(plaintext, &key).expect("encrypt b");
+        assert_ne!(a, b);
+    }
+
+    // T3: a single bit flipped in the Poly1305 tag must fail authentication.
+    #[test]
+    fn tampered_tag_fails_authentication() {
+        let key = SecretKey::generate();
+        let mut envelope = encrypt(b"payload", &key).expect("encrypt");
+        let last = envelope.len() - 1;
+        envelope[last] ^= 0x01;
+        assert!(matches!(
+            decrypt(&envelope, &key),
+            Err(CryptoError::AuthFailure)
+        ));
+    }
+
+    // T4: a single bit flipped in the ciphertext body must fail authentication.
+    #[test]
+    fn tampered_ciphertext_fails_authentication() {
+        let key = SecretKey::generate();
+        let plaintext = b"long enough that the ciphertext body is non-empty";
+        let mut envelope = encrypt(plaintext, &key).expect("encrypt");
+        envelope[HEADER_LEN] ^= 0x01;
+        assert!(matches!(
+            decrypt(&envelope, &key),
+            Err(CryptoError::AuthFailure)
+        ));
+    }
+
+    // T5: an envelope smaller than `header + tag` must surface as `TooShort`,
+    // distinct from authentication failure.
+    #[test]
+    fn truncated_envelope_is_rejected() {
+        let key = SecretKey::generate();
+        let too_small = vec![ENVELOPE_VERSION_V1; HEADER_LEN + TAG_LEN - 1];
+        assert!(matches!(
+            decrypt(&too_small, &key),
+            Err(CryptoError::TooShort { .. })
+        ));
+    }
+
+    // T6: an unrecognized version byte must surface distinctly so future
+    // formats can be added without ambiguity at the boundary.
+    #[test]
+    fn unknown_version_is_rejected() {
+        let key = SecretKey::generate();
+        let mut envelope = encrypt(b"x", &key).expect("encrypt");
+        envelope[0] = 0xFF;
+        assert!(matches!(
+            decrypt(&envelope, &key),
+            Err(CryptoError::UnsupportedVersion(0xFF))
+        ));
+    }
+
+    // T7: a ciphertext authenticated under one key must not decrypt under another.
+    #[test]
+    fn wrong_key_fails_authentication() {
+        let key = SecretKey::generate();
+        let other = SecretKey::generate();
+        let envelope = encrypt(b"secret", &key).expect("encrypt");
+        assert!(matches!(
+            decrypt(&envelope, &other),
+            Err(CryptoError::AuthFailure)
+        ));
+    }
+
+    // T8: `SecretKey::from_bytes` must reject any length other than KEY_LEN
+    // so the gRPC boundary cannot smuggle in malformed key material.
+    #[test]
+    fn from_bytes_rejects_wrong_length() {
+        assert!(matches!(
+            SecretKey::from_bytes(&[0u8; 16]),
+            Err(CryptoError::InvalidKeyLength(16))
+        ));
+        assert!(matches!(
+            SecretKey::from_bytes(&[0u8; 64]),
+            Err(CryptoError::InvalidKeyLength(64))
+        ));
     }
 }
