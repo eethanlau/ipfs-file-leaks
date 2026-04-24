@@ -39,8 +39,9 @@ encryption-node/target/
 .DS_Store
 
 # ---- Project-specific ----
-# Output file produced by the retrieve command
+# Output files produced by the publish/retrieve commands
 decrypted_output
+raw_ciphertext_download
 
 # Test files created locally during development
 test_secret.txt

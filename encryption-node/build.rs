@@ -7,6 +7,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Use tonic_build to automatically generate the Rust gRPC code
     tonic_build::compile_protos("../proto/key_service.proto")?;
-    
+
     Ok(())
 }
