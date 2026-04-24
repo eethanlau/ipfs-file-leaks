@@ -4,9 +4,7 @@ use std::io;
 use std::io::prelude::*;
 
 use encryption_node::config::Config;
-use encryption_node::crypto::{self, SecretKey};
-use encryption_node::ipfs::IpfsClient;
-use encryption_node::key_client::KeyClient;
+use encryption_node::pipeline::Pipeline;
 
 #[tokio::main]
 async fn main() {
@@ -20,42 +18,21 @@ async fn main() {
     let command = &args[1];
     let target = &args[2];
 
-    let cfg = Config::default_localhost();
+    let pipeline = Pipeline::new(Config::default_localhost());
 
     match command.as_str() {
         "publish" => {
             println!("Starting upload flow for file: {}", target);
-            let file_contents =
-                read_file(target.to_string()).expect("Failed to read file contents");
-            let key = SecretKey::generate();
-            let envelope = crypto::encrypt(&file_contents, &key).expect("Failed to encrypt file");
-
-            let ipfs = IpfsClient::new(cfg.ipfs_url.clone());
-            let cid = ipfs
-                .add(envelope)
+            let plaintext = read_file(target.to_string()).expect("Failed to read file contents");
+            let outcome = pipeline
+                .publish(&plaintext, pipeline.default_ttl())
                 .await
-                .expect("Failed to upload file to IPFS node");
-
-            let keys = KeyClient::new(cfg.key_server_url.clone());
-            keys.register(&cid, &key, cfg.default_ttl)
-                .await
-                .expect("Failed to register key");
-            println!("File published, CID: {}", cid);
+                .expect("publish failed");
+            println!("File published, CID: {}", outcome.cid);
         }
         "retrieve" => {
             println!("Starting download flow for CID: {}", target);
-
-            let ipfs = IpfsClient::new(cfg.ipfs_url.clone());
-            let envelope = ipfs.cat(target).await.expect("Failed to download file");
-
-            let keys = KeyClient::new(cfg.key_server_url.clone());
-            let key = keys
-                .fetch(target)
-                .await
-                .expect("failed to contact key server to retrieve key");
-
-            let plaintext = crypto::decrypt(&envelope, &key).expect("Failed to decrypt file");
-
+            let plaintext = pipeline.retrieve(target).await.expect("retrieve failed");
             std::fs::write("decrypted_output", plaintext).expect("Failed to save decrypted file");
             println!("File retrieved and saved as 'decrypted_output'");
         }
