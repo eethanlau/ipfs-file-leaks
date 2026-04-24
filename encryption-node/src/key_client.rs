@@ -4,6 +4,8 @@ use std::time::Duration;
 
 use tonic::transport::{Endpoint, Uri};
 
+use crate::crypto::{CryptoError, SecretKey};
+
 pub(crate) mod pb {
     tonic::include_proto!("key_service");
 }
@@ -25,7 +27,7 @@ impl KeyClient {
     pub async fn register(
         &self,
         cid: &str,
-        encryption_key: &[u8],
+        key: &SecretKey,
         ttl: Duration,
     ) -> Result<(), KeyClientError> {
         let channel = self
@@ -37,7 +39,7 @@ impl KeyClient {
 
         let request = tonic::Request::new(RegisterKeyRequest {
             cid: cid.to_string(),
-            encryption_key: encryption_key.to_vec(),
+            encryption_key: key.expose().to_vec(),
             ttl_seconds: ttl.as_secs() as i64,
             is_replication: false,
         });
@@ -46,7 +48,7 @@ impl KeyClient {
         Ok(())
     }
 
-    pub async fn fetch(&self, cid: &str) -> Result<Vec<u8>, KeyClientError> {
+    pub async fn fetch(&self, cid: &str) -> Result<SecretKey, KeyClientError> {
         let channel = self
             .endpoint
             .connect()
@@ -59,11 +61,10 @@ impl KeyClient {
         });
 
         let response = client.get_key(request).await?.into_inner();
-        if response.success {
-            Ok(response.encryption_key)
-        } else {
-            Err(KeyClientError::ServerRejected(response.message))
+        if !response.success {
+            return Err(KeyClientError::ServerRejected(response.message));
         }
+        Ok(SecretKey::from_bytes(&response.encryption_key)?)
     }
 }
 
@@ -75,4 +76,6 @@ pub enum KeyClientError {
     Rpc(#[from] tonic::Status),
     #[error("server rejected request: {0}")]
     ServerRejected(String),
+    #[error("server returned malformed key material")]
+    InvalidKeyMaterial(#[from] CryptoError),
 }

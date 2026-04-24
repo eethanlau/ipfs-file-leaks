@@ -4,7 +4,7 @@ use std::io;
 use std::io::prelude::*;
 
 use encryption_node::config::Config;
-use encryption_node::crypto;
+use encryption_node::crypto::{self, SecretKey};
 use encryption_node::ipfs::IpfsClient;
 use encryption_node::key_client::KeyClient;
 
@@ -27,18 +27,17 @@ async fn main() {
             println!("Starting upload flow for file: {}", target);
             let file_contents =
                 read_file(target.to_string()).expect("Failed to read file contents");
-            let crypto_key = crypto::generate_symmetric_key();
-            let ciphertext =
-                crypto::encrypt_file(&file_contents, &crypto_key).expect("Failed to encrypt file");
+            let key = SecretKey::generate();
+            let envelope = crypto::encrypt(&file_contents, &key).expect("Failed to encrypt file");
 
             let ipfs = IpfsClient::new(cfg.ipfs_url.clone());
             let cid = ipfs
-                .add(ciphertext)
+                .add(envelope)
                 .await
                 .expect("Failed to upload file to IPFS node");
 
             let keys = KeyClient::new(cfg.key_server_url.clone());
-            keys.register(&cid, &crypto_key, cfg.default_ttl)
+            keys.register(&cid, &key, cfg.default_ttl)
                 .await
                 .expect("Failed to register key");
             println!("File published, CID: {}", cid);
@@ -47,16 +46,15 @@ async fn main() {
             println!("Starting download flow for CID: {}", target);
 
             let ipfs = IpfsClient::new(cfg.ipfs_url.clone());
-            let ciphertext = ipfs.cat(target).await.expect("Failed to download file");
+            let envelope = ipfs.cat(target).await.expect("Failed to download file");
 
             let keys = KeyClient::new(cfg.key_server_url.clone());
-            let crypto_key = keys
+            let key = keys
                 .fetch(target)
                 .await
                 .expect("failed to contact key server to retrieve key");
 
-            let plaintext =
-                crypto::decrypt_file(&ciphertext, &crypto_key).expect("Failed to decrypt file");
+            let plaintext = crypto::decrypt(&envelope, &key).expect("Failed to decrypt file");
 
             std::fs::write("decrypted_output", plaintext).expect("Failed to save decrypted file");
             println!("File retrieved and saved as 'decrypted_output'");
