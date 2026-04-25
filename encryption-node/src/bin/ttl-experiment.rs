@@ -26,7 +26,7 @@ use url::Url;
 use encryption_node::config::Config;
 use encryption_node::error::Error;
 use encryption_node::key_client::KeyClientError;
-use encryption_node::pipeline::Pipeline;
+use encryption_node::pipeline::{Pipeline, RetrieveOutcome};
 
 #[derive(Parser)]
 #[command(version, about = "TTL leak experiment harness")]
@@ -74,40 +74,51 @@ async fn main() -> Result<()> {
     });
 
     println!(
-        "iteration,payload_bytes,publish_ms,retrieve_pre_ms,retrieve_post_ms,retrieve_post_outcome"
+        "iteration,payload_bytes,\
+         publish_keygen_us,publish_encrypt_us,publish_ipfs_add_us,publish_register_us,\
+         retrieve_pre_fetch_us,retrieve_pre_cat_us,retrieve_pre_decrypt_us,\
+         retrieve_post_total_us,retrieve_post_outcome"
     );
 
     let mut leaks = 0u32;
     for iteration in 0..cli.iterations {
         let payload = random_bytes(cli.payload_size);
 
-        let publish_start = Instant::now();
         let outcome = pipeline.publish(&payload, cli.ttl).await?;
-        let publish_ms = publish_start.elapsed().as_millis();
+        let p = outcome.timings;
 
-        let pre_start = Instant::now();
-        let recovered = pipeline.retrieve(&outcome.cid).await?;
-        let pre_ms = pre_start.elapsed().as_millis();
-        if recovered != payload {
+        let pre = pipeline.retrieve(&outcome.cid).await?;
+        if pre.plaintext != payload {
             bail!(
                 "pre-TTL retrieve returned mismatched bytes for cid {}",
                 outcome.cid
             );
         }
+        let r = pre.timings;
 
         tokio::time::sleep(cli.ttl + cli.margin).await;
 
         let post_start = Instant::now();
         let post_result = pipeline.retrieve(&outcome.cid).await;
-        let post_ms = post_start.elapsed().as_millis();
+        let post_total_us = post_start.elapsed().as_micros();
         let post_label = label(&post_result);
         if post_result.is_ok() {
             leaks += 1;
         }
 
         println!(
-            "{},{},{},{},{},{}",
-            iteration, cli.payload_size, publish_ms, pre_ms, post_ms, post_label
+            "{},{},{},{},{},{},{},{},{},{},{}",
+            iteration,
+            cli.payload_size,
+            p.key_gen.as_micros(),
+            p.encrypt.as_micros(),
+            p.ipfs_add.as_micros(),
+            p.key_register.as_micros(),
+            r.key_fetch.as_micros(),
+            r.ipfs_cat.as_micros(),
+            r.decrypt.as_micros(),
+            post_total_us,
+            post_label,
         );
     }
 
@@ -123,7 +134,7 @@ fn random_bytes(size: usize) -> Vec<u8> {
     buf
 }
 
-fn label(result: &Result<Vec<u8>, Error>) -> &'static str {
+fn label(result: &Result<RetrieveOutcome, Error>) -> &'static str {
     match result {
         Ok(_) => "leak",
         Err(Error::Key(KeyClientError::ServerRejected(_))) => "key_rejected",

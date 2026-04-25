@@ -71,12 +71,12 @@ async fn main() -> Result<()> {
             );
         }
         Command::Retrieve { cid } => {
-            let plaintext = pipeline.retrieve(&cid).await?;
-            std::fs::write("decrypted_output", &plaintext)?;
+            let outcome = pipeline.retrieve(&cid).await?;
+            std::fs::write("decrypted_output", &outcome.plaintext)?;
             println!(
                 "retrieved cid={} bytes={} -> decrypted_output",
                 cid,
-                plaintext.len()
+                outcome.plaintext.len()
             );
         }
     }
