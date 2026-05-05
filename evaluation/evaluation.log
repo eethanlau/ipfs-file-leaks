@@ -1,0 +1,141 @@
+2026-05-05 15:56:37,644 - INFO - Starting testbed...
+2026-05-05 15:56:37,644 - INFO - Running: docker compose -f docker-compose.yml down -v
+2026-05-05 15:56:37,713 - INFO - Running: docker compose -f docker-compose.yml up --build -d
+2026-05-05 15:56:39,642 - INFO - Waiting for IPFS nodes to be ready (15s)...
+2026-05-05 15:56:54,644 - INFO - Running: docker exec ipfs-publisher ipfs id
+2026-05-05 15:56:54,737 - INFO - Publisher Multiaddr: /dns4/ipfs-publisher/tcp/4001/p2p/12D3KooWSeCFmmMi9yMA4R7d6Joj6og8HqtG9N9UjNDfQmNGfgtT
+2026-05-05 15:56:54,737 - INFO - Running: docker exec ipfs-retriever-fast ipfs swarm connect /dns4/ipfs-publisher/tcp/4001/p2p/12D3KooWSeCFmmMi9yMA4R7d6Joj6og8HqtG9N9UjNDfQmNGfgtT
+2026-05-05 15:56:54,820 - INFO - Running: docker exec ipfs-retriever-fast ipfs id
+2026-05-05 15:56:54,906 - INFO - Running: docker exec ipfs-retriever-third-party ipfs swarm connect /dns4/ipfs-retriever-fast/tcp/4001/p2p/12D3KooWMCMn2CadgjUHSRz4RC7w7ghqFX5WUrvszja8Mw5Tp5WR
+2026-05-05 15:56:54,993 - INFO - Running: docker exec -u 0 ipfs-retriever-slow apk add iproute2
+2026-05-05 15:56:55,060 - INFO - \n========================================\n=== Evaluating 1KB ===\n========================================
+2026-05-05 15:56:55,060 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- publish "/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_1KB.bin"
+2026-05-05 15:56:56,244 - INFO - Published 1KB, CID: QmReByCTpcczz15UrA64Mf4uSkqMZgS81bXMQv31qXXVFK, Time: 1.18s
+2026-05-05 15:56:56,244 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmReByCTpcczz15UrA64Mf4uSkqMZgS81bXMQv31qXXVFK
+2026-05-05 15:56:57,109 - INFO - Retrieved 1KB (fast), Time: 0.86s
+2026-05-05 15:56:57,109 - INFO - Removing QmReByCTpcczz15UrA64Mf4uSkqMZgS81bXMQv31qXXVFK from publisher...
+2026-05-05 15:56:57,109 - INFO - Running: docker exec ipfs-publisher ipfs pin rm QmReByCTpcczz15UrA64Mf4uSkqMZgS81bXMQv31qXXVFK
+2026-05-05 15:56:57,620 - INFO - Running: docker exec ipfs-publisher ipfs repo gc
+2026-05-05 15:57:03,999 - INFO - Running: docker exec ipfs-retriever-fast ipfs block stat QmReByCTpcczz15UrA64Mf4uSkqMZgS81bXMQv31qXXVFK
+2026-05-05 15:57:04,112 - INFO - Leak exists for 1KB? True
+2026-05-05 15:57:04,113 - INFO - Checking if third-party can fetch the leaked 1KB data...
+2026-05-05 15:58:04,242 - INFO - Third-party viral leak for 1KB? False
+2026-05-05 15:58:04,242 - INFO - --- Running TTL Expiration Test for 1KB ---
+2026-05-05 15:58:04,242 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- --ttl 15s publish "/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_1KB.bin"
+2026-05-05 15:58:05,452 - INFO - Retrieving immediately (should succeed)...
+2026-05-05 15:58:05,452 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmcizmUS6Di6bSBmAn2PGousamFeb6qipBBRA5cQk6ZAzQ
+2026-05-05 15:58:06,274 - INFO - Waiting 16 seconds for TTL to expire...
+2026-05-05 15:58:22,279 - INFO - Retrieving after TTL (should fail)...
+2026-05-05 15:58:22,279 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmcizmUS6Di6bSBmAn2PGousamFeb6qipBBRA5cQk6ZAzQ
+2026-05-05 15:58:23,320 - ERROR - Command failed: Error: 
+   0: [91mserver rejected request: key has expired[0m
+
+Location:
+   [35msrc/main.rs[0m:[35m74[0m
+
+Backtrace omitted. Run with RUST_BACKTRACE=1 environment variable to display it.
+Run with RUST_BACKTRACE=full to include source snippets.
+
+2026-05-05 15:58:23,321 - INFO - Retrieval failed as expected! Mitigation works.
+2026-05-05 15:58:23,321 - INFO - --- Running Encryption Overhead Benchmark for 1KB ---
+2026-05-05 15:58:23,321 - INFO - Running: curl -s -F file=@"/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_1KB.bin" http://127.0.0.1:5031/api/v0/add
+2026-05-05 15:58:23,357 - INFO - Running: curl -s -o /dev/null http://127.0.0.1:5031/api/v0/cat?arg=QmRV4PePPwstVnopbHbi6pZnJwyNcmZ7rzt7ctiA79tFmb
+2026-05-05 15:58:23,376 - INFO - \n========================================\n=== Evaluating 1MB ===\n========================================
+2026-05-05 15:58:23,377 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- publish "/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_1MB.bin"
+2026-05-05 15:58:24,310 - INFO - Published 1MB, CID: QmYiCiLdzwwzCf7zNJcmFfhxu1HUaDGUZc3qfaqTNzMF7L, Time: 0.93s
+2026-05-05 15:58:24,310 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmYiCiLdzwwzCf7zNJcmFfhxu1HUaDGUZc3qfaqTNzMF7L
+2026-05-05 15:58:25,784 - INFO - Retrieved 1MB (fast), Time: 1.47s
+2026-05-05 15:58:25,785 - INFO - Removing QmYiCiLdzwwzCf7zNJcmFfhxu1HUaDGUZc3qfaqTNzMF7L from publisher...
+2026-05-05 15:58:25,785 - INFO - Running: docker exec ipfs-publisher ipfs pin rm QmYiCiLdzwwzCf7zNJcmFfhxu1HUaDGUZc3qfaqTNzMF7L
+2026-05-05 15:58:26,011 - INFO - Running: docker exec ipfs-publisher ipfs repo gc
+2026-05-05 15:58:31,138 - INFO - Running: docker exec ipfs-retriever-fast ipfs block stat QmYiCiLdzwwzCf7zNJcmFfhxu1HUaDGUZc3qfaqTNzMF7L
+2026-05-05 15:58:31,249 - INFO - Leak exists for 1MB? True
+2026-05-05 15:58:31,249 - INFO - Checking if third-party can fetch the leaked 1MB data...
+2026-05-05 15:59:31,354 - INFO - Third-party viral leak for 1MB? False
+2026-05-05 15:59:31,354 - INFO - --- Running TTL Expiration Test for 1MB ---
+2026-05-05 15:59:31,354 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- --ttl 15s publish "/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_1MB.bin"
+2026-05-05 15:59:32,726 - INFO - Retrieving immediately (should succeed)...
+2026-05-05 15:59:32,726 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmeZDRzMwCDFMdmELxy6Qy5oqmCCP4TiHEAsoANVYZuw35
+2026-05-05 15:59:33,944 - INFO - Waiting 16 seconds for TTL to expire...
+2026-05-05 15:59:49,950 - INFO - Retrieving after TTL (should fail)...
+2026-05-05 15:59:49,950 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmeZDRzMwCDFMdmELxy6Qy5oqmCCP4TiHEAsoANVYZuw35
+2026-05-05 15:59:51,037 - ERROR - Command failed: Error: 
+   0: [91mserver rejected request: key has expired[0m
+
+Location:
+   [35msrc/main.rs[0m:[35m74[0m
+
+Backtrace omitted. Run with RUST_BACKTRACE=1 environment variable to display it.
+Run with RUST_BACKTRACE=full to include source snippets.
+
+2026-05-05 15:59:51,037 - INFO - Retrieval failed as expected! Mitigation works.
+2026-05-05 15:59:51,037 - INFO - --- Running Encryption Overhead Benchmark for 1MB ---
+2026-05-05 15:59:51,037 - INFO - Running: curl -s -F file=@"/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_1MB.bin" http://127.0.0.1:5031/api/v0/add
+2026-05-05 15:59:51,109 - INFO - Running: curl -s -o /dev/null http://127.0.0.1:5031/api/v0/cat?arg=Qmexjfx4WYiTZyQeJQoUmPy2HXBPf8iWn1f6K5WfezCMXd
+2026-05-05 15:59:51,129 - INFO - \n========================================\n=== Evaluating 10MB ===\n========================================
+2026-05-05 15:59:51,129 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- publish "/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_10MB.bin"
+2026-05-05 15:59:53,436 - INFO - Published 10MB, CID: QmZ7WfRo6gkF5zaqsGXPCwVUoLEgXfRrXByLaC5uzYKUz7, Time: 2.31s
+2026-05-05 15:59:53,437 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmZ7WfRo6gkF5zaqsGXPCwVUoLEgXfRrXByLaC5uzYKUz7
+2026-05-05 15:59:57,819 - INFO - Retrieved 10MB (fast), Time: 4.38s
+2026-05-05 15:59:57,820 - INFO - Removing QmZ7WfRo6gkF5zaqsGXPCwVUoLEgXfRrXByLaC5uzYKUz7 from publisher...
+2026-05-05 15:59:57,820 - INFO - Running: docker exec ipfs-publisher ipfs pin rm QmZ7WfRo6gkF5zaqsGXPCwVUoLEgXfRrXByLaC5uzYKUz7
+2026-05-05 15:59:57,921 - INFO - Running: docker exec ipfs-publisher ipfs repo gc
+2026-05-05 16:00:03,026 - INFO - Running: docker exec ipfs-retriever-fast ipfs block stat QmZ7WfRo6gkF5zaqsGXPCwVUoLEgXfRrXByLaC5uzYKUz7
+2026-05-05 16:00:03,124 - INFO - Leak exists for 10MB? True
+2026-05-05 16:00:03,124 - INFO - Checking if third-party can fetch the leaked 10MB data...
+2026-05-05 16:00:06,596 - INFO - Third-party viral leak for 10MB? True
+2026-05-05 16:00:06,597 - INFO - --- Running TTL Expiration Test for 10MB ---
+2026-05-05 16:00:06,597 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- --ttl 15s publish "/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_10MB.bin"
+2026-05-05 16:00:09,770 - INFO - Retrieving immediately (should succeed)...
+2026-05-05 16:00:09,771 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmPc9uVBWy34TUUfbh37wcoyhoS85YFrnqPMXGm2dQCbU4
+2026-05-05 16:00:14,710 - INFO - Waiting 16 seconds for TTL to expire...
+2026-05-05 16:00:30,711 - INFO - Retrieving after TTL (should fail)...
+2026-05-05 16:00:30,711 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmPc9uVBWy34TUUfbh37wcoyhoS85YFrnqPMXGm2dQCbU4
+2026-05-05 16:00:31,822 - ERROR - Command failed: Error: 
+   0: [91mserver rejected request: key has expired[0m
+
+Location:
+   [35msrc/main.rs[0m:[35m74[0m
+
+Backtrace omitted. Run with RUST_BACKTRACE=1 environment variable to display it.
+Run with RUST_BACKTRACE=full to include source snippets.
+
+2026-05-05 16:00:31,823 - INFO - Retrieval failed as expected! Mitigation works.
+2026-05-05 16:00:31,823 - INFO - --- Running Encryption Overhead Benchmark for 10MB ---
+2026-05-05 16:00:31,823 - INFO - Running: curl -s -F file=@"/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_10MB.bin" http://127.0.0.1:5031/api/v0/add
+2026-05-05 16:00:32,401 - INFO - Running: curl -s -o /dev/null http://127.0.0.1:5031/api/v0/cat?arg=QmUTsJqQ1YHhSPgKQVL7AR3jJFENM2Ec2DiJScrcYQQQWS
+2026-05-05 16:00:32,484 - INFO - \n========================================\n=== Evaluating 50MB ===\n========================================
+2026-05-05 16:00:32,484 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- publish "/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_50MB.bin"
+2026-05-05 16:00:43,618 - INFO - Published 50MB, CID: QmT3s8enQdyuSVZLTVQcHumUoWrdMmDskeKitGNt1zVdH5, Time: 11.13s
+2026-05-05 16:00:43,618 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmT3s8enQdyuSVZLTVQcHumUoWrdMmDskeKitGNt1zVdH5
+2026-05-05 16:01:07,528 - INFO - Retrieved 50MB (fast), Time: 23.91s
+2026-05-05 16:01:07,528 - INFO - Removing QmT3s8enQdyuSVZLTVQcHumUoWrdMmDskeKitGNt1zVdH5 from publisher...
+2026-05-05 16:01:07,528 - INFO - Running: docker exec ipfs-publisher ipfs pin rm QmT3s8enQdyuSVZLTVQcHumUoWrdMmDskeKitGNt1zVdH5
+2026-05-05 16:01:07,632 - INFO - Running: docker exec ipfs-publisher ipfs repo gc
+2026-05-05 16:01:12,754 - INFO - Running: docker exec ipfs-retriever-fast ipfs block stat QmT3s8enQdyuSVZLTVQcHumUoWrdMmDskeKitGNt1zVdH5
+2026-05-05 16:01:12,889 - INFO - Leak exists for 50MB? True
+2026-05-05 16:01:12,889 - INFO - Checking if third-party can fetch the leaked 50MB data...
+2026-05-05 16:01:37,400 - INFO - Third-party viral leak for 50MB? True
+2026-05-05 16:01:37,401 - INFO - --- Running TTL Expiration Test for 50MB ---
+2026-05-05 16:01:37,401 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- --ttl 15s publish "/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_50MB.bin"
+2026-05-05 16:01:51,785 - INFO - Retrieving immediately (should succeed)...
+2026-05-05 16:01:51,785 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmSqvBDhofQy4KVefwaMjmZrLBtoxwgEkLdq59gLFHUr3y
+2026-05-05 16:02:13,556 - INFO - Waiting 16 seconds for TTL to expire...
+2026-05-05 16:02:29,557 - INFO - Retrieving after TTL (should fail)...
+2026-05-05 16:02:29,558 - INFO - Running: cd ../encryption-node && cargo run --bin encryption-node --quiet -- retrieve QmSqvBDhofQy4KVefwaMjmZrLBtoxwgEkLdq59gLFHUr3y
+2026-05-05 16:02:30,971 - ERROR - Command failed: Error: 
+   0: [91mserver rejected request: key has expired[0m
+
+Location:
+   [35msrc/main.rs[0m:[35m74[0m
+
+Backtrace omitted. Run with RUST_BACKTRACE=1 environment variable to display it.
+Run with RUST_BACKTRACE=full to include source snippets.
+
+2026-05-05 16:02:30,971 - INFO - Retrieval failed as expected! Mitigation works.
+2026-05-05 16:02:30,971 - INFO - --- Running Encryption Overhead Benchmark for 50MB ---
+2026-05-05 16:02:30,971 - INFO - Running: curl -s -F file=@"/Users/ethanlau/Documents/Graduate Year Spring Semester/ipfs-file-leaks/evaluation/data/file_50MB.bin" http://127.0.0.1:5031/api/v0/add
+2026-05-05 16:02:35,657 - INFO - Running: curl -s -o /dev/null http://127.0.0.1:5031/api/v0/cat?arg=QmdDGu9sp5vG85Nbx3mZmbMaJqpbpHECgdAzi5fVSjYGVV
+2026-05-05 16:02:35,677 - INFO - Saved results to results/report.json
+2026-05-05 16:02:35,677 - INFO - Cleaning up testbed...
+2026-05-05 16:02:35,677 - INFO - Running: docker compose -f docker-compose.yml down

@@ -1,0 +1,74 @@
+services:
+
+  # IPFS node that publishes the file
+  ipfs-publisher:
+    image: ipfs/kubo:latest
+    container_name: ipfs-publisher
+    ports:
+      - "5031:5001" # HTTP API
+    volumes:
+      - publisher_data:/data/ipfs
+    healthcheck:
+      test: [ "CMD", "ipfs", "id" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # IPFS node that retrieves the file (normal network)
+  ipfs-retriever-fast:
+    image: ipfs/kubo:latest
+    container_name: ipfs-retriever-fast
+    ports:
+      - "5041:5001" # HTTP API
+    volumes:
+      - retriever_fast_data:/data/ipfs
+    healthcheck:
+      test: [ "CMD", "ipfs", "id" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # IPFS node that retrieves the file (slow network)
+  ipfs-retriever-slow:
+    image: ipfs/kubo:latest
+    container_name: ipfs-retriever-slow
+    ports:
+      - "5051:5001" # HTTP API
+    volumes:
+      - retriever_slow_data:/data/ipfs
+    # We will use Docker commands or tc to inject latency into this container after startup
+    healthcheck:
+      test: [ "CMD", "ipfs", "id" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # IPFS node that simulates a third party fetching leaked data
+  ipfs-retriever-third-party:
+    image: ipfs/kubo:latest
+    container_name: ipfs-retriever-third-party
+    ports:
+      - "5061:5001" # HTTP API
+    volumes:
+      - retriever_third_party_data:/data/ipfs
+    healthcheck:
+      test: [ "CMD", "ipfs", "id" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Go gRPC key server
+  key-server:
+    build:
+      context: ../key-server
+      dockerfile: Dockerfile
+    container_name: eval-key-server
+    ports:
+      - "50061:50051"
+    restart: unless-stopped
+
+volumes:
+  publisher_data:
+  retriever_fast_data:
+  retriever_slow_data:
+  retriever_third_party_data:
