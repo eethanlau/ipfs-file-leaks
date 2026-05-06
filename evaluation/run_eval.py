@@ -10,6 +10,11 @@ SIZES = {"1KB": 1024, "1MB": 1024**2, "10MB": 10 * 1024**2, "50MB": 50 * 1024**2
 DATA_DIR = "data"
 RESULTS_FILE = "results/report.json"
 
+# Paths resolved from the script's own location so the script can be run from anywhere.
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ENCRYPTION_NODE_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "encryption-node"))
+ENCRYPTION_BIN = os.path.join(ENCRYPTION_NODE_DIR, "target", "release", "encryption-node")
+
 def run_cmd(cmd, env=None, check=True, timeout=60):
     logging.info(f"Running: {cmd}")
     try:
@@ -30,6 +35,12 @@ def setup_data():
             logging.info(f"Generating {path} of size {size} bytes")
             with open(path, "wb") as f:
                 f.write(os.urandom(size))
+
+def build_encryption_node():
+    logging.info(f"Building encryption-node release binary at {ENCRYPTION_BIN}...")
+    run_cmd(f"cargo build --release --bin encryption-node --manifest-path {ENCRYPTION_NODE_DIR}/Cargo.toml", timeout=600)
+    if not os.path.exists(ENCRYPTION_BIN):
+        raise Exception(f"Release binary not found after build: {ENCRYPTION_BIN}")
 
 def setup_testbed():
     logging.info("Starting testbed...")
@@ -67,32 +78,31 @@ def setup_testbed():
 def run_evaluation():
     os.makedirs("results", exist_ok=True)
     results = {}
-    encryption_node_dir = "../encryption-node"
-    
+
     for name, size in SIZES.items():
         logging.info(f"\\n{'='*40}\\n=== Evaluating {name} ===\\n{'='*40}")
         file_path = os.path.abspath(os.path.join(DATA_DIR, f"file_{name}.bin"))
-        
+
         results[name] = {"size_bytes": size}
-        
+
         # ------------------------------------------
         # 1. Base Leak & Third Party Viral Leak Test
         # ------------------------------------------
         env = os.environ.copy()
         env["IPFS_URL"] = "http://127.0.0.1:5031"
         env["KEY_SERVER_URL"] = "http://127.0.0.1:50061"
-        
+
         # Publish
         start_time = time.time()
-        output = run_cmd(f"cd {encryption_node_dir} && cargo run --bin encryption-node --quiet -- publish \"{file_path}\"", env=env)
+        output = run_cmd(f"{ENCRYPTION_BIN} publish \"{file_path}\"", env=env)
         pub_time = time.time() - start_time
         cid = [p.split("=")[1] for line in output.split('\\n') for p in line.split() if p.startswith("cid=")][0]
         logging.info(f"Published {name}, CID: {cid}, Time: {pub_time:.2f}s")
-        
+
         # Retrieve Fast
         env["IPFS_URL"] = "http://127.0.0.1:5041"
         start_time = time.time()
-        run_cmd(f"cd {encryption_node_dir} && cargo run --bin encryption-node --quiet -- retrieve {cid}", env=env)
+        run_cmd(f"{ENCRYPTION_BIN} retrieve {cid}", env=env)
         fast_time = time.time() - start_time
         logging.info(f"Retrieved {name} (fast), Time: {fast_time:.2f}s")
         
@@ -134,20 +144,20 @@ def run_evaluation():
         # ------------------------------------------
         logging.info(f"--- Running TTL Expiration Test for {name} ---")
         env["IPFS_URL"] = "http://127.0.0.1:5031"
-        output = run_cmd(f"cd {encryption_node_dir} && cargo run --bin encryption-node --quiet -- --ttl 15s publish \"{file_path}\"", env=env)
+        output = run_cmd(f"{ENCRYPTION_BIN} --ttl 15s publish \"{file_path}\"", env=env)
         ttl_cid = [p.split("=")[1] for line in output.split('\\n') for p in line.split() if p.startswith("cid=")][0]
-        
+
         logging.info("Retrieving immediately (should succeed)...")
         env["IPFS_URL"] = "http://127.0.0.1:5041"
-        run_cmd(f"cd {encryption_node_dir} && cargo run --bin encryption-node --quiet -- retrieve {ttl_cid}", env=env)
-        
+        run_cmd(f"{ENCRYPTION_BIN} retrieve {ttl_cid}", env=env)
+
         logging.info("Waiting 16 seconds for TTL to expire...")
         time.sleep(16)
-        
+
         logging.info("Retrieving after TTL (should fail)...")
         ttl_mitigation_worked = False
         try:
-            run_cmd(f"cd {encryption_node_dir} && cargo run --bin encryption-node --quiet -- retrieve {ttl_cid}", env=env)
+            run_cmd(f"{ENCRYPTION_BIN} retrieve {ttl_cid}", env=env)
         except Exception as e:
             logging.info("Retrieval failed as expected! Mitigation works.")
             ttl_mitigation_worked = True
@@ -186,6 +196,7 @@ def run_evaluation():
 
 if __name__ == "__main__":
     setup_data()
+    build_encryption_node()
     setup_testbed()
     try:
         run_evaluation()
