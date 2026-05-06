@@ -49,24 +49,64 @@ def setup_testbed():
     
     logging.info("Waiting for IPFS nodes to be ready (15s)...")
     time.sleep(15)
-    
+
+    # Strip public bootstrap peers and restart so the daemons come back up
+    # isolated. Without this, each Kubo node connects to ~100 public IPFS
+    # peers; bitswap WANTs against the test peers get drowned out and the
+    # first cross-container retrieval times out.
+    nodes = [
+        "ipfs-publisher",
+        "ipfs-retriever-fast",
+        "ipfs-retriever-slow",
+        "ipfs-retriever-third-party",
+    ]
+    for node in nodes:
+        run_cmd(f"docker exec {node} ipfs bootstrap rm --all", check=False)
+    logging.info("Restarting IPFS containers to drop public peer connections...")
+    run_cmd("docker compose -f docker-compose.yml restart " + " ".join(nodes))
+    time.sleep(15)
+
     # Get publisher ID
     pub_id_json = run_cmd("docker exec ipfs-publisher ipfs id")
     pub_id_data = json.loads(pub_id_json)
     pub_peer_id = pub_id_data.get("ID")
     pub_multiaddr = f"/dns4/ipfs-publisher/tcp/4001/p2p/{pub_peer_id}"
     logging.info(f"Publisher Multiaddr: {pub_multiaddr}")
-    
+
     # Connect standard retrievers to publisher
     run_cmd(f"docker exec ipfs-retriever-fast ipfs swarm connect {pub_multiaddr}", check=False)
-    
+
     # Connect third-party ONLY to the fast retriever
     fast_id_json = run_cmd("docker exec ipfs-retriever-fast ipfs id")
     fast_id_data = json.loads(fast_id_json)
     fast_peer_id = fast_id_data.get("ID")
     fast_multiaddr = f"/dns4/ipfs-retriever-fast/tcp/4001/p2p/{fast_peer_id}"
     run_cmd(f"docker exec ipfs-retriever-third-party ipfs swarm connect {fast_multiaddr}", check=False)
-    
+
+    # Warmup probe: publish a tiny file from publisher and confirm the fast
+    # retriever can fetch it. Catches cold-bitswap failures up front rather
+    # than silently timing out the first measured retrieve. Retried because
+    # bitswap convergence after a fresh swarm connect is non-deterministic.
+    logging.info("Warming up bitswap session between publisher and fast retriever...")
+    warmup_cid = run_cmd(
+        "echo warmup-$(date +%s) | docker exec -i ipfs-publisher ipfs add -q --pin=false"
+    ).strip()
+    last_err = None
+    for attempt in range(1, 7):
+        try:
+            run_cmd(
+                f"docker exec ipfs-retriever-fast ipfs cat --timeout=10s {warmup_cid}",
+                timeout=15,
+            )
+            logging.info(f"Warmup complete on attempt {attempt}; bitswap is live.")
+            break
+        except Exception as e:
+            last_err = e
+            logging.warning(f"Warmup attempt {attempt} failed; retrying...")
+            time.sleep(3)
+    else:
+        raise Exception(f"Warmup never converged after 6 attempts: {last_err}")
+
     # Inject latency to slow node
     try:
         run_cmd("docker exec -u 0 ipfs-retriever-slow apk add iproute2", check=False)
@@ -194,12 +234,54 @@ def run_evaluation():
             
     logging.info(f"Saved results to {RESULTS_FILE}")
 
+def run_fault_tolerance_test():
+    """Publish through the primary key server, kill it, retrieve via the
+    replica. Confirms that replication populates the secondary so retrievals
+    survive a single-server failure."""
+    logging.info(f"\\n{'='*40}\\n=== Fault Tolerance Test ===\\n{'='*40}")
+    file_path = os.path.abspath(os.path.join(DATA_DIR, "file_1KB.bin"))
+
+    env = os.environ.copy()
+    env["IPFS_URL"] = "http://127.0.0.1:5031"
+    env["KEY_SERVER_URL"] = "http://127.0.0.1:50061"
+
+    output = run_cmd(f"{ENCRYPTION_BIN} publish \"{file_path}\"", env=env)
+    cid = [p.split("=")[1] for line in output.split('\\n') for p in line.split() if p.startswith("cid=")][0]
+    logging.info(f"Published via primary, CID: {cid}")
+
+    # Allow the asynchronous replication broadcast to land on the replica.
+    time.sleep(2)
+
+    logging.info("Killing primary key-server...")
+    run_cmd("docker kill eval-key-server")
+
+    env["IPFS_URL"] = "http://127.0.0.1:5041"
+    env["KEY_SERVER_URL"] = "http://127.0.0.1:50062"
+    fault_tolerant = False
+    try:
+        run_cmd(f"{ENCRYPTION_BIN} retrieve {cid}", env=env)
+        fault_tolerant = True
+        logging.info("Retrieval succeeded with primary down — replication holds.")
+    except Exception:
+        logging.error("Retrieval failed with primary down — replica did not have the key.")
+
+    logging.info("Restarting primary key-server...")
+    run_cmd("docker start eval-key-server", check=False)
+
+    with open(RESULTS_FILE, "r") as f:
+        results = json.load(f)
+    results["fault_tolerance"] = {"primary_killed_then_retrieved_via_replica": fault_tolerant}
+    with open(RESULTS_FILE, "w") as f:
+        json.dump(results, f, indent=2)
+    logging.info(f"Fault tolerance result: {fault_tolerant}")
+
 if __name__ == "__main__":
     setup_data()
     build_encryption_node()
     setup_testbed()
     try:
         run_evaluation()
+        run_fault_tolerance_test()
     finally:
         logging.info("Cleaning up testbed...")
         run_cmd("docker compose -f docker-compose.yml down")

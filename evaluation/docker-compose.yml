@@ -57,14 +57,28 @@ services:
       timeout: 5s
       retries: 5
 
-  # Go gRPC key server
+  # Go gRPC key server (primary). Replicates registrations to key-server-b.
   key-server:
     build:
       context: ../key-server
       dockerfile: Dockerfile
     container_name: eval-key-server
+    environment:
+      - KEY_SERVER_PEERS=key-server-b:50051
     ports:
       - "50061:50051"
+    restart: unless-stopped
+
+  # Go gRPC key server (replica). Replicates registrations back to the primary.
+  key-server-b:
+    build:
+      context: ../key-server
+      dockerfile: Dockerfile
+    container_name: eval-key-server-b
+    environment:
+      - KEY_SERVER_PEERS=key-server:50051
+    ports:
+      - "50062:50051"
     restart: unless-stopped
 
 volumes:

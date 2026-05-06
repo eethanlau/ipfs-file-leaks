@@ -1,58 +1,61 @@
 {
   "1KB": {
     "size_bytes": 1024,
-    "publish_time_s": 1.183,
-    "retrieve_fast_time_s": 0.865,
+    "publish_time_s": 0.63,
+    "retrieve_fast_time_s": 0.044,
     "leak_exists_after_publisher_delete": true,
-    "third_party_viral_leak": false,
+    "third_party_viral_leak": true,
     "ttl_mitigation_successful": true,
     "overhead_benchmark": {
-      "native_publish_time_s": 0.036,
-      "native_retrieve_time_s": 0.019,
-      "publish_overhead_percent": 3204.31,
-      "retrieve_overhead_percent": 4452.12
+      "native_publish_time_s": 0.053,
+      "native_retrieve_time_s": 0.015,
+      "publish_overhead_percent": 1080.33,
+      "retrieve_overhead_percent": 191.78
     }
   },
   "1MB": {
     "size_bytes": 1048576,
-    "publish_time_s": 0.933,
-    "retrieve_fast_time_s": 1.475,
+    "publish_time_s": 0.035,
+    "retrieve_fast_time_s": 0.075,
     "leak_exists_after_publisher_delete": true,
-    "third_party_viral_leak": false,
+    "third_party_viral_leak": true,
     "ttl_mitigation_successful": true,
     "overhead_benchmark": {
-      "native_publish_time_s": 0.072,
-      "native_retrieve_time_s": 0.019,
-      "publish_overhead_percent": 1200.38,
-      "retrieve_overhead_percent": 7537.52
+      "native_publish_time_s": 0.054,
+      "native_retrieve_time_s": 0.017,
+      "publish_overhead_percent": -35.21,
+      "retrieve_overhead_percent": 344.24
     }
   },
   "10MB": {
     "size_bytes": 10485760,
-    "publish_time_s": 2.307,
-    "retrieve_fast_time_s": 4.383,
+    "publish_time_s": 0.115,
+    "retrieve_fast_time_s": 0.278,
     "leak_exists_after_publisher_delete": true,
     "third_party_viral_leak": true,
     "ttl_mitigation_successful": true,
     "overhead_benchmark": {
-      "native_publish_time_s": 0.578,
-      "native_retrieve_time_s": 0.082,
-      "publish_overhead_percent": 298.85,
-      "retrieve_overhead_percent": 5252.68
+      "native_publish_time_s": 0.058,
+      "native_retrieve_time_s": 0.016,
+      "publish_overhead_percent": 98.43,
+      "retrieve_overhead_percent": 1663.89
     }
   },
   "50MB": {
     "size_bytes": 52428800,
-    "publish_time_s": 11.134,
-    "retrieve_fast_time_s": 23.91,
+    "publish_time_s": 0.46,
+    "retrieve_fast_time_s": 2.253,
     "leak_exists_after_publisher_delete": true,
     "third_party_viral_leak": true,
     "ttl_mitigation_successful": true,
     "overhead_benchmark": {
-      "native_publish_time_s": 4.686,
-      "native_retrieve_time_s": 0.019,
-      "publish_overhead_percent": 137.62,
-      "retrieve_overhead_percent": 124187.66
+      "native_publish_time_s": 0.123,
+      "native_retrieve_time_s": 0.016,
+      "publish_overhead_percent": 272.98,
+      "retrieve_overhead_percent": 14305.08
     }
+  },
+  "fault_tolerance": {
+    "primary_killed_then_retrieved_via_replica": true
   }
 }
